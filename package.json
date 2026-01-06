@@ -6,14 +6,23 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "dev:android": "eas build --profile development --platform android",
+    "dev:ios": "eas build --profile development --platform ios",
+    "build:android": "eas build --profile production --platform android",
+    "build:ios": "eas build --profile production --platform ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~54.0.30",
+    "expo-dev-client": "~6.0.20",
+    "expo-notifications": "~0.32.15",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "eas-cli": "^16.28.0"
+  }
 }

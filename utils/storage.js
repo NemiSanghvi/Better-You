@@ -1,5 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { USER_NAME, USER_INTENT, COMPANION_TYPE, HAS_ONBOARDED, USER_TASKS } from '../constants/storageKeys';
+import { 
+  USER_NAME, 
+  USER_INTENT, 
+  COMPANION_TYPE, 
+  HAS_ONBOARDED, 
+  USER_TASKS,
+  JOURNEY_START_DATE,
+  CURRENT_WEEK,
+  PREVIOUS_WEEK_TASKS,
+  WEEK_START_DATE,
+  LAST_NOTIFICATION_DATE,
+} from '../constants/storageKeys';
 
 export const checkOnboardingStatus = async () => {
   try {
@@ -68,6 +79,11 @@ export const clearAllData = async () => {
       AsyncStorage.removeItem(COMPANION_TYPE),
       AsyncStorage.removeItem(HAS_ONBOARDED),
       AsyncStorage.removeItem(USER_TASKS),
+      AsyncStorage.removeItem(JOURNEY_START_DATE),
+      AsyncStorage.removeItem(CURRENT_WEEK),
+      AsyncStorage.removeItem(PREVIOUS_WEEK_TASKS),
+      AsyncStorage.removeItem(WEEK_START_DATE),
+      AsyncStorage.removeItem(LAST_NOTIFICATION_DATE),
     ]);
     return true;
   } catch (error) {
@@ -76,6 +92,7 @@ export const clearAllData = async () => {
   }
 };
 
+// Task storage functions
 export const saveTasks = async (tasks) => {
   try {
     await AsyncStorage.setItem(USER_TASKS, JSON.stringify(tasks));
@@ -116,3 +133,212 @@ export const updateTaskCompletion = async (taskDay, completed) => {
   }
 };
 
+// Week tracking functions
+export const getJourneyStartDate = async () => {
+  try {
+    const startDate = await AsyncStorage.getItem(JOURNEY_START_DATE);
+    return startDate ? new Date(startDate) : null;
+  } catch (error) {
+    console.error('Error getting journey start date:', error);
+    return null;
+  }
+};
+
+export const saveJourneyStartDate = async () => {
+  try {
+    const today = new Date().toISOString();
+    await AsyncStorage.setItem(JOURNEY_START_DATE, today);
+    return true;
+  } catch (error) {
+    console.error('Error saving journey start date:', error);
+    return false;
+  }
+};
+
+export const getCurrentWeek = async () => {
+  try {
+    const weekStr = await AsyncStorage.getItem(CURRENT_WEEK);
+    return weekStr ? parseInt(weekStr, 10) : 0;
+  } catch (error) {
+    console.error('Error getting current week:', error);
+    return 0;
+  }
+};
+
+export const saveCurrentWeek = async (weekNumber) => {
+  try {
+    await AsyncStorage.setItem(CURRENT_WEEK, weekNumber.toString());
+    return true;
+  } catch (error) {
+    console.error('Error saving current week:', error);
+    return false;
+  }
+};
+
+export const getWeekStartDate = async () => {
+  try {
+    const dateStr = await AsyncStorage.getItem(WEEK_START_DATE);
+    return dateStr ? new Date(dateStr) : null;
+  } catch (error) {
+    console.error('Error getting week start date:', error);
+    return null;
+  }
+};
+
+export const saveWeekStartDate = async () => {
+  try {
+    const today = new Date().toISOString();
+    await AsyncStorage.setItem(WEEK_START_DATE, today);
+    return true;
+  } catch (error) {
+    console.error('Error saving week start date:', error);
+    return false;
+  }
+};
+
+export const getPreviousWeekTasks = async () => {
+  try {
+    const tasksJson = await AsyncStorage.getItem(PREVIOUS_WEEK_TASKS);
+    return tasksJson ? JSON.parse(tasksJson) : [];
+  } catch (error) {
+    console.error('Error getting previous week tasks:', error);
+    return [];
+  }
+};
+
+export const savePreviousWeekTasks = async (tasks) => {
+  try {
+    await AsyncStorage.setItem(PREVIOUS_WEEK_TASKS, JSON.stringify(tasks));
+    return true;
+  } catch (error) {
+    console.error('Error saving previous week tasks:', error);
+    return false;
+  }
+};
+
+// Notification helpers
+export const getLastNotificationDate = async () => {
+  try {
+    const dateStr = await AsyncStorage.getItem(LAST_NOTIFICATION_DATE);
+    return dateStr || null;
+  } catch (error) {
+    console.error('Error getting last notification date:', error);
+    return null;
+  }
+};
+
+export const saveLastNotificationDate = async (dateStr) => {
+  try {
+    await AsyncStorage.setItem(LAST_NOTIFICATION_DATE, dateStr);
+    return true;
+  } catch (error) {
+    console.error('Error saving last notification date:', error);
+    return false;
+  }
+};
+
+// Calculate total weeks from start date to end of year
+export const calculateTotalWeeks = (startDate) => {
+  const start = new Date(startDate);
+  const endOfYear = new Date(start.getFullYear(), 11, 31); // Dec 31
+  const diffTime = endOfYear - start;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return Math.ceil(diffDays / 7);
+};
+
+// Check if a new week has started (7 days since last week start)
+export const shouldGenerateNewWeek = async () => {
+  try {
+    const weekStartDate = await getWeekStartDate();
+    
+    // First time - no week start date
+    if (!weekStartDate) {
+      console.log('[shouldGenerateNewWeek] No week start date found - first time');
+      return true;
+    }
+    
+    const today = new Date();
+    const daysSinceStart = Math.floor((today - weekStartDate) / (1000 * 60 * 60 * 24));
+    
+    console.log('[shouldGenerateNewWeek] Days since week start:', daysSinceStart);
+    
+    // Generate new week if 7+ days have passed
+    return daysSinceStart >= 7;
+  } catch (error) {
+    console.error('Error checking if should generate new week:', error);
+    return false;
+  }
+};
+
+// Get full week status for HomeScreen
+export const getWeekStatus = async () => {
+  try {
+    const [journeyStart, currentWeek, weekStart, tasks, previousTasks] = await Promise.all([
+      getJourneyStartDate(),
+      getCurrentWeek(),
+      getWeekStartDate(),
+      getTasks(),
+      getPreviousWeekTasks(),
+    ]);
+    
+    const totalWeeks = journeyStart ? calculateTotalWeeks(journeyStart) : 52;
+    const needsNewWeek = await shouldGenerateNewWeek();
+    
+    return {
+      journeyStartDate: journeyStart,
+      currentWeek: currentWeek || 1,
+      totalWeeks,
+      weekStartDate: weekStart,
+      currentTasks: tasks || [],
+      previousTasks: previousTasks || [],
+      needsNewWeek,
+    };
+  } catch (error) {
+    console.error('Error getting week status:', error);
+    return {
+      journeyStartDate: null,
+      currentWeek: 1,
+      totalWeeks: 52,
+      weekStartDate: null,
+      currentTasks: [],
+      previousTasks: [],
+      needsNewWeek: true,
+    };
+  }
+};
+
+// Transition to new week - archive current tasks and increment week
+export const transitionToNewWeek = async () => {
+  try {
+    const currentTasks = await getTasks();
+    const currentWeek = await getCurrentWeek();
+    
+    // Save current tasks as previous week tasks
+    if (currentTasks && currentTasks.length > 0) {
+      await savePreviousWeekTasks(currentTasks);
+    }
+    
+    // Increment week number
+    const newWeek = (currentWeek || 0) + 1;
+    await saveCurrentWeek(newWeek);
+    
+    // Update week start date
+    await saveWeekStartDate();
+    
+    // Clear current tasks
+    await saveTasks([]);
+    
+    // Save journey start date if first week
+    const journeyStart = await getJourneyStartDate();
+    if (!journeyStart) {
+      await saveJourneyStartDate();
+    }
+    
+    console.log('[transitionToNewWeek] Transitioned to week', newWeek);
+    
+    return newWeek;
+  } catch (error) {
+    console.error('Error transitioning to new week:', error);
+    return null;
+  }
+};

@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { clearAllData, getTasks, saveTasks, updateTaskCompletion } from '../utils/storage';
-import { generateDailyTasks } from '../utils/chatgpt';
+import { 
+  clearAllData, 
+  saveTasks, 
+  updateTaskCompletion,
+  getWeekStatus,
+  transitionToNewWeek,
+  calculateTotalWeeks,
+  getLastNotificationDate,
+  saveLastNotificationDate,
+} from '../utils/storage';
+import { generateWeeklyTasks } from '../utils/chatgpt';
+import { scheduleTodayTaskNotification, requestNotificationPermissions } from '../utils/notifications';
 import styles from '../styles/StyleSheet';
 
 const getCompanionDisplayName = (companionType) => {
@@ -16,24 +26,61 @@ const getCompanionDisplayName = (companionType) => {
 
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
+const getTodayDateString = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  // Use local date parts to avoid timezone issues with toISOString
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodaysPendingTask = (allTasks) => {
+  // Instead of relying on dates (which can be tricky with timezones),
+  // treat "today" as the next incomplete task in the current week.
+  return allTasks.find((t) => !t.completed) || null;
 };
 
 const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
   const [tasks, setTasks] = useState([]);
+  const [currentWeek, setCurrentWeek] = useState(1);
+  const [totalWeeks, setTotalWeeks] = useState(52);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadTasks();
+    loadWeekStatus();
   }, []);
 
-  const loadTasks = async () => {
+  const loadWeekStatus = async () => {
     setIsLoading(true);
-    const savedTasks = await getTasks();
-    if (savedTasks && savedTasks.length > 0) {
-      setTasks(savedTasks);
+    try {
+      // Request notification permissions on app load
+      await requestNotificationPermissions();
+      
+      const status = await getWeekStatus();
+      console.log('[HomeScreen] Week status:', status);
+      
+      setCurrentWeek(status.currentWeek);
+      setTotalWeeks(status.totalWeeks);
+      setTasks(status.currentTasks);
+
+      // After loading tasks, schedule today's notification if needed
+      await maybeScheduleTodayNotification(status.currentTasks);
+      
+      // Auto-generate if new week is needed and we have no tasks
+      if (status.needsNewWeek && status.currentTasks.length === 0) {
+        console.log('[HomeScreen] New week needed, auto-generating...');
+        // Don't auto-generate, let user click button
+      }
+    } catch (err) {
+      console.error('[HomeScreen] Error loading week status:', err);
+      setError('Failed to load tasks');
     }
     setIsLoading(false);
   };
@@ -42,14 +89,65 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
     setIsGenerating(true);
     setError(null);
     try {
-      const generatedTasks = await generateDailyTasks();
+      // Transition to new week (archives current tasks, increments week)
+      const status = await getWeekStatus();
+      let weekNum = status.currentWeek;
+      let prevTasks = status.previousTasks;
+      let weeks = status.totalWeeks;
+      
+      // If first time or new week needed, transition
+      if (status.needsNewWeek || status.currentTasks.length === 0) {
+        weekNum = await transitionToNewWeek();
+        prevTasks = status.currentTasks; // Current becomes previous
+        
+        // Recalculate total weeks if first time
+        if (!status.journeyStartDate) {
+          weeks = calculateTotalWeeks(new Date());
+        }
+      }
+      
+      console.log('[HomeScreen] Generating tasks for week', weekNum, 'of', weeks);
+      console.log('[HomeScreen] Previous tasks:', prevTasks);
+      
+      const generatedTasks = await generateWeeklyTasks(weekNum, weeks, prevTasks);
       await saveTasks(generatedTasks);
+      
       setTasks(generatedTasks);
+      setCurrentWeek(weekNum);
+      setTotalWeeks(weeks);
+
+      // Schedule notification for today's new task
+      await maybeScheduleTodayNotification(generatedTasks);
     } catch (err) {
       setError(err.message || 'Failed to generate tasks. Please try again.');
-      console.error('Error generating tasks:', err);
+      console.error('[HomeScreen] Error generating tasks:', err);
     }
     setIsGenerating(false);
+  };
+
+  const maybeScheduleTodayNotification = async (allTasks) => {
+    try {
+      const todayStr = getTodayDateString();
+      const lastNotified = await getLastNotificationDate();
+
+      // Only schedule once per day
+      if (lastNotified === todayStr) {
+        console.log('[HomeScreen] Notification already scheduled for today');
+        return;
+      }
+
+      const todaysTask = getTodaysPendingTask(allTasks);
+      if (!todaysTask) {
+        console.log('[HomeScreen] No pending task for today, skipping notification');
+        return;
+      }
+
+      console.log('[HomeScreen] Scheduling today notification for task:', todaysTask);
+      await scheduleTodayTaskNotification(companionType);
+      await saveLastNotificationDate(todayStr);
+    } catch (error) {
+      console.error('[HomeScreen] Error scheduling today notification:', error);
+    }
   };
 
   const handleToggleTask = async (taskDay) => {
@@ -69,8 +167,12 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
     }
   };
 
+  // Progress for current week
   const completedCount = tasks.filter(t => t.completed).length;
-  const progressPercent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+  const weekProgressPercent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+  
+  // Overall journey progress
+  const journeyProgressPercent = totalWeeks > 0 ? Math.round((currentWeek / totalWeeks) * 100) : 0;
 
   if (isLoading) {
     return (
@@ -108,7 +210,9 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
           {tasks.length === 0 ? (
             <View style={{ marginTop: 20, width: '100%', maxWidth: 300 }}>
               <Text style={[styles.helperText, { textAlign: 'center', marginBottom: 15 }]}>
-                Generate your personalized daily tasks to achieve your goal by Dec 31, 2026
+                {currentWeek > 1 
+                  ? `Ready for Week ${currentWeek}! Generate your new tasks.`
+                  : 'Start your journey! Generate your first week of tasks.'}
               </Text>
               {error && (
                 <Text style={{ color: '#FF6B6B', textAlign: 'center', marginBottom: 10 }}>
@@ -123,17 +227,45 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
                 {isGenerating ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <ActivityIndicator size="small" color="#1a1a2e" style={{ marginRight: 10 }} />
-                    <Text style={styles.buttonText}>Generating Tasks...</Text>
+                    <Text style={styles.buttonText}>Generating...</Text>
                   </View>
                 ) : (
-                  <Text style={styles.buttonText}>Generate My Tasks</Text>
+                  <Text style={styles.buttonText}>
+                    {currentWeek > 1 ? `Generate Week ${currentWeek}` : 'Start Week 1'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{ marginTop: 20, width: '100%', maxWidth: 350 }}>
+              {/* Journey Progress */}
+              <View style={[styles.card, { marginBottom: 10 }]}>
+                <Text style={styles.infoLabel}>Journey Progress</Text>
+                <Text style={[styles.cardText, { fontSize: 20, color: '#4ECDC4' }]}>
+                  Week {currentWeek} of {totalWeeks}
+                </Text>
+                <View style={{ 
+                  height: 6, 
+                  backgroundColor: '#2a2a4a', 
+                  borderRadius: 3, 
+                  marginTop: 8,
+                  overflow: 'hidden'
+                }}>
+                  <View style={{ 
+                    height: '100%', 
+                    width: `${journeyProgressPercent}%`, 
+                    backgroundColor: '#9B59B6',
+                    borderRadius: 3
+                  }} />
+                </View>
+                <Text style={[styles.helperText, { marginTop: 5, textAlign: 'right', fontSize: 11 }]}>
+                  {journeyProgressPercent}% of journey
+                </Text>
+              </View>
+
+              {/* Week Progress */}
               <View style={[styles.card, { marginBottom: 15 }]}>
-                <Text style={styles.infoLabel}>Progress</Text>
+                <Text style={styles.infoLabel}>This Week's Progress</Text>
                 <Text style={[styles.cardText, { fontSize: 24, color: '#4ECDC4' }]}>
                   {completedCount} / {tasks.length} tasks
                 </Text>
@@ -146,18 +278,18 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
                 }}>
                   <View style={{ 
                     height: '100%', 
-                    width: `${progressPercent}%`, 
+                    width: `${weekProgressPercent}%`, 
                     backgroundColor: '#4ECDC4',
                     borderRadius: 4
                   }} />
                 </View>
                 <Text style={[styles.helperText, { marginTop: 5, textAlign: 'right' }]}>
-                  {progressPercent}% complete
+                  {weekProgressPercent}% complete
                 </Text>
               </View>
 
               <Text style={[styles.infoLabel, { marginBottom: 10, textAlign: 'center' }]}>
-                Your Daily Tasks
+                Week {currentWeek} Tasks
               </Text>
               
               {tasks.map((task) => (

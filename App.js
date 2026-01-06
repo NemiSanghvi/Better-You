@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
 import LoadingSpinner from './components/LoadingSpinner';
 import NameInputScreen from './screens/NameInputScreen';
 import IntentInputScreen from './screens/IntentInputScreen';
