@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { USER_NAME, USER_INTENT, COMPANION_TYPE, HAS_ONBOARDED } from '../constants/storageKeys';
+import { USER_NAME, USER_INTENT, COMPANION_TYPE, HAS_ONBOARDED, USER_TASKS } from '../constants/storageKeys';
 
 export const checkOnboardingStatus = async () => {
   try {
@@ -67,11 +67,52 @@ export const clearAllData = async () => {
       AsyncStorage.removeItem(USER_INTENT),
       AsyncStorage.removeItem(COMPANION_TYPE),
       AsyncStorage.removeItem(HAS_ONBOARDED),
+      AsyncStorage.removeItem(USER_TASKS),
     ]);
     return true;
   } catch (error) {
     console.error('Error clearing data:', error);
     return false;
+  }
+};
+
+export const saveTasks = async (tasks) => {
+  try {
+    await AsyncStorage.setItem(USER_TASKS, JSON.stringify(tasks));
+    return true;
+  } catch (error) {
+    console.error('Error saving tasks:', error);
+    return false;
+  }
+};
+
+export const getTasks = async () => {
+  try {
+    const tasksJson = await AsyncStorage.getItem(USER_TASKS);
+    if (tasksJson) {
+      return JSON.parse(tasksJson);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting tasks:', error);
+    return null;
+  }
+};
+
+export const updateTaskCompletion = async (taskDay, completed) => {
+  try {
+    const tasks = await getTasks();
+    if (tasks) {
+      const updatedTasks = tasks.map(task => 
+        task.day === taskDay ? { ...task, completed } : task
+      );
+      await saveTasks(updatedTasks);
+      return updatedTasks;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error updating task:', error);
+    return null;
   }
 };
 
