@@ -23,14 +23,11 @@ export const requestNotificationPermissions = async () => {
     }
 
     if (finalStatus !== 'granted') {
-      console.warn('[notifications] Permission not granted:', finalStatus);
       return false;
     }
 
-    console.log('[notifications] Permission granted');
     return true;
   } catch (error) {
-    console.error('[notifications] Error requesting permissions:', error);
     return false;
   }
 };
@@ -78,9 +75,8 @@ const buildNotificationMessage = (companionType, yesterdayCompleted, taskText) =
 const cancelAllNotifications = async () => {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('[notifications] Cancelled all existing notifications');
   } catch (error) {
-    console.error('[notifications] Error cancelling notifications:', error);
+    // Silent fail
   }
 };
 
@@ -90,20 +86,17 @@ export const scheduleTodayTaskNotification = async (companionType) => {
     // Request permissions first
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) {
-      console.log('[notifications] No permission, cannot schedule notification');
       return;
     }
 
     const tasks = await getTasks();
     if (!tasks || tasks.length === 0) {
-      console.log('[notifications] No tasks found, skipping notification');
       return;
     }
 
     // Find the first incomplete task in the current week
     const todayIndex = tasks.findIndex((t) => !t.completed);
     if (todayIndex === -1) {
-      console.log('[notifications] All tasks completed, skipping notification');
       return;
     }
 
@@ -144,12 +137,9 @@ export const scheduleTodayTaskNotification = async (companionType) => {
       },
       trigger,
     });
-
-    console.log('[notifications] Notification scheduled for:', triggerDate.toLocaleString());
     
     return notificationId;
   } catch (error) {
-    console.error('[notifications] Error scheduling today notification:', error);
     throw error;
   }
 };

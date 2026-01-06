@@ -28,7 +28,6 @@ export const checkOnboardingStatus = async () => {
       companionType: companion || '',
     };
   } catch (error) {
-    console.error('Error checking onboarding status:', error);
     return {
       hasOnboarded: false,
       userName: '',
@@ -43,7 +42,6 @@ export const saveUserName = async (name) => {
     await AsyncStorage.setItem(USER_NAME, name.trim());
     return true;
   } catch (error) {
-    console.error('Error saving name:', error);
     return false;
   }
 };
@@ -53,7 +51,6 @@ export const saveUserIntent = async (intent) => {
     await AsyncStorage.setItem(USER_INTENT, intent.trim());
     return true;
   } catch (error) {
-    console.error('Error saving intent:', error);
     return false;
   }
 };
@@ -66,7 +63,6 @@ export const saveCompanionType = async (companionType) => {
     ]);
     return true;
   } catch (error) {
-    console.error('Error saving companion type:', error);
     return false;
   }
 };
@@ -87,7 +83,6 @@ export const clearAllData = async () => {
     ]);
     return true;
   } catch (error) {
-    console.error('Error clearing data:', error);
     return false;
   }
 };
@@ -98,7 +93,6 @@ export const saveTasks = async (tasks) => {
     await AsyncStorage.setItem(USER_TASKS, JSON.stringify(tasks));
     return true;
   } catch (error) {
-    console.error('Error saving tasks:', error);
     return false;
   }
 };
@@ -111,7 +105,6 @@ export const getTasks = async () => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting tasks:', error);
     return null;
   }
 };
@@ -128,7 +121,6 @@ export const updateTaskCompletion = async (taskDay, completed) => {
     }
     return null;
   } catch (error) {
-    console.error('Error updating task:', error);
     return null;
   }
 };
@@ -139,7 +131,6 @@ export const getJourneyStartDate = async () => {
     const startDate = await AsyncStorage.getItem(JOURNEY_START_DATE);
     return startDate ? new Date(startDate) : null;
   } catch (error) {
-    console.error('Error getting journey start date:', error);
     return null;
   }
 };
@@ -150,7 +141,6 @@ export const saveJourneyStartDate = async () => {
     await AsyncStorage.setItem(JOURNEY_START_DATE, today);
     return true;
   } catch (error) {
-    console.error('Error saving journey start date:', error);
     return false;
   }
 };
@@ -160,7 +150,6 @@ export const getCurrentWeek = async () => {
     const weekStr = await AsyncStorage.getItem(CURRENT_WEEK);
     return weekStr ? parseInt(weekStr, 10) : 0;
   } catch (error) {
-    console.error('Error getting current week:', error);
     return 0;
   }
 };
@@ -170,7 +159,6 @@ export const saveCurrentWeek = async (weekNumber) => {
     await AsyncStorage.setItem(CURRENT_WEEK, weekNumber.toString());
     return true;
   } catch (error) {
-    console.error('Error saving current week:', error);
     return false;
   }
 };
@@ -180,7 +168,6 @@ export const getWeekStartDate = async () => {
     const dateStr = await AsyncStorage.getItem(WEEK_START_DATE);
     return dateStr ? new Date(dateStr) : null;
   } catch (error) {
-    console.error('Error getting week start date:', error);
     return null;
   }
 };
@@ -191,7 +178,6 @@ export const saveWeekStartDate = async () => {
     await AsyncStorage.setItem(WEEK_START_DATE, today);
     return true;
   } catch (error) {
-    console.error('Error saving week start date:', error);
     return false;
   }
 };
@@ -201,7 +187,6 @@ export const getPreviousWeekTasks = async () => {
     const tasksJson = await AsyncStorage.getItem(PREVIOUS_WEEK_TASKS);
     return tasksJson ? JSON.parse(tasksJson) : [];
   } catch (error) {
-    console.error('Error getting previous week tasks:', error);
     return [];
   }
 };
@@ -211,7 +196,6 @@ export const savePreviousWeekTasks = async (tasks) => {
     await AsyncStorage.setItem(PREVIOUS_WEEK_TASKS, JSON.stringify(tasks));
     return true;
   } catch (error) {
-    console.error('Error saving previous week tasks:', error);
     return false;
   }
 };
@@ -222,7 +206,6 @@ export const getLastNotificationDate = async () => {
     const dateStr = await AsyncStorage.getItem(LAST_NOTIFICATION_DATE);
     return dateStr || null;
   } catch (error) {
-    console.error('Error getting last notification date:', error);
     return null;
   }
 };
@@ -232,7 +215,6 @@ export const saveLastNotificationDate = async (dateStr) => {
     await AsyncStorage.setItem(LAST_NOTIFICATION_DATE, dateStr);
     return true;
   } catch (error) {
-    console.error('Error saving last notification date:', error);
     return false;
   }
 };
@@ -253,19 +235,15 @@ export const shouldGenerateNewWeek = async () => {
     
     // First time - no week start date
     if (!weekStartDate) {
-      console.log('[shouldGenerateNewWeek] No week start date found - first time');
       return true;
     }
     
     const today = new Date();
     const daysSinceStart = Math.floor((today - weekStartDate) / (1000 * 60 * 60 * 24));
     
-    console.log('[shouldGenerateNewWeek] Days since week start:', daysSinceStart);
-    
     // Generate new week if 7+ days have passed
     return daysSinceStart >= 7;
   } catch (error) {
-    console.error('Error checking if should generate new week:', error);
     return false;
   }
 };
@@ -294,7 +272,6 @@ export const getWeekStatus = async () => {
       needsNewWeek,
     };
   } catch (error) {
-    console.error('Error getting week status:', error);
     return {
       journeyStartDate: null,
       currentWeek: 1,
@@ -334,11 +311,8 @@ export const transitionToNewWeek = async () => {
       await saveJourneyStartDate();
     }
     
-    console.log('[transitionToNewWeek] Transitioned to week', newWeek);
-    
     return newWeek;
   } catch (error) {
-    console.error('Error transitioning to new week:', error);
     return null;
   }
 };

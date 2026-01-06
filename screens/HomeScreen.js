@@ -64,7 +64,6 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
       await requestNotificationPermissions();
       
       const status = await getWeekStatus();
-      console.log('[HomeScreen] Week status:', status);
       
       setCurrentWeek(status.currentWeek);
       setTotalWeeks(status.totalWeeks);
@@ -72,14 +71,7 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
 
       // After loading tasks, schedule today's notification if needed
       await maybeScheduleTodayNotification(status.currentTasks);
-      
-      // Auto-generate if new week is needed and we have no tasks
-      if (status.needsNewWeek && status.currentTasks.length === 0) {
-        console.log('[HomeScreen] New week needed, auto-generating...');
-        // Don't auto-generate, let user click button
-      }
     } catch (err) {
-      console.error('[HomeScreen] Error loading week status:', err);
       setError('Failed to load tasks');
     }
     setIsLoading(false);
@@ -106,9 +98,6 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
         }
       }
       
-      console.log('[HomeScreen] Generating tasks for week', weekNum, 'of', weeks);
-      console.log('[HomeScreen] Previous tasks:', prevTasks);
-      
       const generatedTasks = await generateWeeklyTasks(weekNum, weeks, prevTasks);
       await saveTasks(generatedTasks);
       
@@ -120,7 +109,6 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
       await maybeScheduleTodayNotification(generatedTasks);
     } catch (err) {
       setError(err.message || 'Failed to generate tasks. Please try again.');
-      console.error('[HomeScreen] Error generating tasks:', err);
     }
     setIsGenerating(false);
   };
@@ -132,21 +120,18 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
 
       // Only schedule once per day
       if (lastNotified === todayStr) {
-        console.log('[HomeScreen] Notification already scheduled for today');
         return;
       }
 
       const todaysTask = getTodaysPendingTask(allTasks);
       if (!todaysTask) {
-        console.log('[HomeScreen] No pending task for today, skipping notification');
         return;
       }
 
-      console.log('[HomeScreen] Scheduling today notification for task:', todaysTask);
       await scheduleTodayTaskNotification(companionType);
       await saveLastNotificationDate(todayStr);
     } catch (error) {
-      console.error('[HomeScreen] Error scheduling today notification:', error);
+      // Silent fail
     }
   };
 

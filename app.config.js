@@ -1,0 +1,53 @@
+require('dotenv').config();
+
+module.exports = {
+  expo: {
+    name: "Better You",
+    slug: "better-you",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/app-logo.jpg",
+    userInterfaceStyle: "dark",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/app-logo.jpg",
+      resizeMode: "contain",
+      backgroundColor: "#000000"
+    },
+    ios: {
+      supportsTablet: true
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/app-logo.jpg",
+        backgroundColor: "#000000"
+      },
+      edgeToEdgeEnabled: true,
+      package: "io.github.nemi.betteryou",
+      permissions: [
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    plugins: [
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/app-logo.jpg",
+          color: "#4ECDC4",
+          sounds: []
+        }
+      ]
+    ],
+    web: {
+      favicon: "./assets/app-logo.jpg"
+    },
+    extra: {
+      eas: {
+        projectId: "a3a2ffa9-8998-4727-84e6-31ab82e14eb1"
+      },
+      openaiApiKey: process.env.OPENAI_API_KEY,
+    },
+    owner: "assasino"
+  }
+};
+

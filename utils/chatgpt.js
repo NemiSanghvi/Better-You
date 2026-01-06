@@ -1,6 +1,7 @@
+import Constants from 'expo-constants';
 import { checkOnboardingStatus } from './storage';
 
-const OPENAI_API_KEY = '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';
+const OPENAI_API_KEY = Constants.expoConfig?.extra?.openaiApiKey || process.env.OPENAI_API_KEY;
 
 const getCompanionDescription = (companionType) => {
   const descriptions = {
@@ -38,12 +39,6 @@ export const generateWeeklyTasks = async (weekNumber, totalWeeks, previousTasks 
   
   const today = new Date();
   const startDate = today.toISOString().split('T')[0];
-
-  console.log('[generateWeeklyTasks] Week:', weekNumber, 'of', totalWeeks);
-  console.log('[generateWeeklyTasks] Start date:', startDate);
-  console.log('[generateWeeklyTasks] User intent:', userIntent);
-  console.log('[generateWeeklyTasks] Companion type:', companionType);
-  console.log('[generateWeeklyTasks] Previous tasks count:', previousTasks.length);
 
   // Build previous tasks context
   let previousTasksContext = '';
@@ -93,8 +88,6 @@ Do not include markdown.
 Do not include commentary.
 Return valid JSON only.`;
 
-  console.log('[generateWeeklyTasks] System prompt:', systemPrompt);
-
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -111,35 +104,21 @@ Return valid JSON only.`;
     }),
   });
   
-  console.log('[generateWeeklyTasks] Response status:', response.status);
-  
   const data = await response.json();
-  console.log('[generateWeeklyTasks] Full API response:', JSON.stringify(data, null, 2));
   
   if (data.error) {
-    console.error('[generateWeeklyTasks] API Error:', data.error);
     throw new Error(data.error.message || 'Failed to generate tasks');
   }
   
-  console.log('[generateWeeklyTasks] Model used:', data.model);
-  console.log('[generateWeeklyTasks] Usage - Prompt tokens:', data.usage?.prompt_tokens);
-  console.log('[generateWeeklyTasks] Usage - Completion tokens:', data.usage?.completion_tokens);
-  console.log('[generateWeeklyTasks] Usage - Total tokens:', data.usage?.total_tokens);
-  
   let content = data.choices[0].message.content;
-  console.log('[generateWeeklyTasks] Raw response:', content);
   
   if (content.includes('```json')) {
-    console.log('[generateWeeklyTasks] Detected ```json block, extracting...');
     content = content.split('```json')[1].split('```')[0].trim();
   } else if (content.includes('```')) {
-    console.log('[generateWeeklyTasks] Detected ``` block, extracting...');
     content = content.split('```')[1].split('```')[0].trim();
   }
   
-  console.log('[generateWeeklyTasks] Parsing JSON...');
   const rawTasks = JSON.parse(content);
-  console.log('[generateWeeklyTasks] Successfully parsed', rawTasks.length, 'tasks');
   
   // Add date and completed fields to each task
   const tasks = rawTasks.map((task, index) => {
@@ -152,8 +131,6 @@ Return valid JSON only.`;
       completed: false
     };
   });
-  
-  console.log('[generateWeeklyTasks] Tasks with dates:', JSON.stringify(tasks, null, 2));
   
   return tasks;
 };
