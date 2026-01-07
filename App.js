@@ -52,14 +52,6 @@ export default function App() {
     }
   };
 
-  const handleReset = () => {
-    setHasOnboarded(false);
-    setUserName('');
-    setUserIntent('');
-    setCompanionType('');
-    setOnboardingStep('name');
-  };
-
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -74,5 +66,5 @@ export default function App() {
     }
   }
 
-  return <HomeScreen userName={userName} userIntent={userIntent} companionType={companionType} onReset={handleReset} />;
+  return <HomeScreen userName={userName} userIntent={userIntent} companionType={companionType} />;
 }

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { 
-  clearAllData, 
   saveTasks, 
   updateTaskCompletion,
   getWeekStatus,
@@ -45,7 +44,7 @@ const getTodaysPendingTask = (allTasks) => {
   return allTasks.find((t) => !t.completed) || null;
 };
 
-const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
+const HomeScreen = ({ userName, userIntent, companionType }) => {
   const [tasks, setTasks] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [totalWeeks, setTotalWeeks] = useState(52);
@@ -142,13 +141,6 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
       if (updatedTasks) {
         setTasks(updatedTasks);
       }
-    }
-  };
-
-  const handleReset = async () => {
-    const success = await clearAllData();
-    if (success && onReset) {
-      onReset();
     }
   };
 
@@ -326,13 +318,6 @@ const HomeScreen = ({ userName, userIntent, companionType, onReset }) => {
               ))}
             </View>
           )}
-
-          <TouchableOpacity
-            style={[styles.button, { marginTop: 30, backgroundColor: '#FF6B35', borderColor: '#FFA500' }]}
-            onPress={handleReset}
-          >
-            <Text style={styles.buttonText}>Reset Onboarding</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
       
