@@ -6,7 +6,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: false,
+    shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
@@ -80,7 +80,7 @@ const cancelAllNotifications = async () => {
   }
 };
 
-// Schedules a notification for today's task at 9:00 AM
+// Schedules notifications for all remaining incomplete tasks in the week at 9:00 AM
 export const scheduleTodayTaskNotification = async (companionType) => {
   try {
     // Request permissions first
@@ -94,51 +94,54 @@ export const scheduleTodayTaskNotification = async (companionType) => {
       return;
     }
 
-    // Find the first incomplete task in the current week
-    const todayIndex = tasks.findIndex((t) => !t.completed);
-    if (todayIndex === -1) {
-      return;
-    }
-
-    const todaysTask = tasks[todayIndex];
-    const yesterdaysTask = todayIndex > 0 ? tasks[todayIndex - 1] : null;
-
-    const yesterdayCompleted = yesterdaysTask ? !!yesterdaysTask.completed : false;
-    const { title, body } = buildNotificationMessage(
-      companionType,
-      yesterdayCompleted,
-      todaysTask.task
-    );
-
     // Cancel existing notifications
     await cancelAllNotifications();
 
-    // Calculate trigger time: 9:00 AM today, or tomorrow if it's past 9 AM
     const now = new Date();
-    const triggerDate = new Date();
-    triggerDate.setHours(9, 0, 0, 0);
-    
-    // If it's past 9 AM, schedule for tomorrow
-    if (now.getTime() >= triggerDate.getTime()) {
-      triggerDate.setDate(triggerDate.getDate() + 1);
+    const notificationIds = [];
+
+    // Schedule notifications for all incomplete tasks
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      if (task.completed) {
+        continue; // Skip completed tasks
+      }
+
+      const previousTask = i > 0 ? tasks[i - 1] : null;
+      const yesterdayCompleted = previousTask ? !!previousTask.completed : false;
+      
+      const { title, body } = buildNotificationMessage(
+        companionType,
+        yesterdayCompleted,
+        task.task
+      );
+
+      // Parse the task date (format: YYYY-MM-DD)
+      const [year, month, day] = task.date.split('-').map(Number);
+      const triggerDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+      
+      // Only schedule if the notification time hasn't passed yet
+      if (triggerDate.getTime() > now.getTime()) {
+        const trigger = {
+          type: 'date',
+          date: triggerDate,
+        };
+
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            sound: true,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          },
+          trigger,
+        });
+        
+        notificationIds.push(notificationId);
+      }
     }
-
-    const trigger = {
-      type: 'date',
-      date: triggerDate,
-    };
-
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-      },
-      trigger,
-    });
     
-    return notificationId;
+    return notificationIds;
   } catch (error) {
     throw error;
   }
